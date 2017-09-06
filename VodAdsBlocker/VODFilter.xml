@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<VodFilters>
+  <Filter>
+    <Query>http://tvn.adocean.pl/ad.xml</Query>
+    <Response><![CDATA[<VAST version="2.0"></VAST>]]></Response>
+  </Filter>
+  <Filter>
+    <Query>ad.xml</Query>
+    <Response><![CDATA[<VAST version="3.0"></VAST>]]></Response>
+  </Filter>
+  <Filter>
+    <Query>csr.xml</Query>
+    <Response><![CDATA[<VAST version="2.0"></VAST>]]></Response>
+  </Filter>
+  <Filter>
+    <Query>http://ipla.hit.stat24.com/ad.xml</Query>
+    <Response><![CDATA[<resp></resp>]]></Response>
+  </Filter>
+</VodFilters>
