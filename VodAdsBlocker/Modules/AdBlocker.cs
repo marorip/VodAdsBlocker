@@ -1,108 +1,137 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using Fiddler;
+using System.Net;
+using System.Threading.Tasks;
+using Titanium.Web.Proxy;
+using Titanium.Web.Proxy.EventArguments;
+using Titanium.Web.Proxy.Models;
 
-namespace VodAdsBlocker
+namespace VodAdsBlocker.Modules
 {
     public class AdBlocker : IDisposable
     {
-        private bool disposed;
-        private VodFilters filters;
+        private bool _disposed;
+        private VodFilters _filters;
 
         public EventHandler OnStarted;
         public EventHandler OnStopped;
-        
+
+        private readonly ProxyServer _proxyServer;
+
         public AdBlocker()
         {
             UpdateFilters();
 
-            FiddlerApplication.BeforeRequest += delegate (Session oSession)
+            _proxyServer = new ProxyServer
             {
-                if (filters?.Filters?.Any(x => oSession.fullUrl.Contains(x.Query)) == true)
-                {
-                    Debug.WriteLine(string.Format("Req: {0}", oSession.fullUrl));
-                    oSession.bBufferResponse = true;
-                }
-
-                if (oSession.fullUrl.Contains("//s.tvp.pl") && oSession.fullUrl.Contains(".css"))
-                {
-                    Debug.WriteLine(string.Format("TVP Req: {0}", oSession.fullUrl));
-                    oSession.bBufferResponse = true;
-                }
+                TrustRootCertificate = true
             };
 
-            FiddlerApplication.BeforeResponse += delegate (Session oSession)
-            {
-                Filter filter = filters?.Filters?.FirstOrDefault(x => oSession.fullUrl.Contains(x.Query));
-                if (filter != null)
-                {
-                    Debug.WriteLine(string.Format("Resp: {0}", oSession.fullUrl));
-                    oSession.utilSetResponseBody(filter.Response);
-                }
-
-                if (oSession.fullUrl.Contains("//s.tvp.pl") && oSession.fullUrl.Contains(".css"))
-                {
-                    Debug.WriteLine(string.Format("TVP Resp: {0}", oSession.fullUrl));
-                    string response = oSession.GetResponseBodyAsString().Replace("#tvpoverlay_abdinfo{", "#tvpoverlay_abdinfo{display:none;");
-                    oSession.utilSetResponseBody(response);
-                }
-            };
+            //proxyServer.BeforeRequest += OnRequest;
+            _proxyServer.BeforeResponse += OnResponse;
+            _proxyServer.ServerCertificateValidationCallback += OnCertificateValidation;
+            _proxyServer.ClientCertificateSelectionCallback += OnCertificateSelection;
         }
+
+        public Task OnCertificateValidation(object sender, CertificateValidationEventArgs e)
+        {
+            //set IsValid to true/false based on Certificate Errors
+            if (e.SslPolicyErrors == System.Net.Security.SslPolicyErrors.None)
+                e.IsValid = true;
+
+            return Task.FromResult(0);
+        }
+
+        /// Allows overriding default client certificate selection logic during mutual authentication
+        public Task OnCertificateSelection(object sender, CertificateSelectionEventArgs e)
+        {
+            //set e.clientCertificate to override
+            return Task.FromResult(0);
+        }
+
+        private async Task OnResponse(object arg1, SessionEventArgs arg2)
+        {
+            var url = arg2.WebSession.Request.Url;
+
+            Filter filter = _filters?.Filters?.FirstOrDefault(x => url.Contains(x.Query));
+            if (filter != null)
+            {
+                Debug.WriteLine($"Resp: {url}");
+                await arg2.SetResponseBodyString(filter.Response);
+            }
+
+            if (url.Contains("//s.tvp.pl") && url.Contains(".css"))
+            {
+                Debug.WriteLine($"TVP Resp: {url}");
+
+                string response = await arg2.GetResponseBodyAsString();
+                response = response.Replace("#tvpoverlay_abdinfo{", "#tvpoverlay_abdinfo{display:none;");
+                await arg2.SetResponseBodyString(response);
+            }
+        }
+
+        //private Task OnRequest(object arg1, SessionEventArgs arg2)
+        //{
+        //    var url = arg2.WebSession.Request.Url;
+
+        //    if (filters?.Filters?.Any(x => url.Contains(x.Query)) == true)
+        //    {
+        //        Debug.WriteLine($"Req: {url}");
+        //    }
+
+        //    if (url.Contains("//s.tvp.pl") && url.Contains(".css"))
+        //    {
+        //        Debug.WriteLine($"TVP Req: {url}");
+        //    }
+
+        //    return Task.FromResult(0);
+        //}
 
         public void UpdateFilters()
         {
             string filterPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "VODFilter.xml");
             if (File.Exists(filterPath))
             {
-                filters = Utils.DeserializeFromFile<VodFilters>(filterPath);
+                _filters = Utils.DeserializeFromFile<VodFilters>(filterPath);
             }
         }
 
         public void Start()
         {
-            InstallCertificate();
+            var explicitEndPoint = new ExplicitProxyEndPoint(IPAddress.Any, 8000, true)
+            {
+                ExcludedHttpsHostNameRegex = new List<string>
+                {
+                    "player.com",
+                    "dropbox.com"
+                }
+            };
+            
+            _proxyServer.AddEndPoint(explicitEndPoint);
+            _proxyServer.Start();
 
-            FiddlerApplication.Startup(8877, true, true);
+            _proxyServer.SetAsSystemHttpProxy(explicitEndPoint);
+            _proxyServer.SetAsSystemHttpsProxy(explicitEndPoint);
 
             OnStarted?.Invoke(this, EventArgs.Empty);
         }
 
         public static bool InstallCertificate()
         {
-            if (!CertMaker.rootCertExists())
-            {
-                if (!CertMaker.createRootCert())
-                    return false;
-            }
-
-            if (!CertMaker.rootCertIsTrusted())
-            {
-                if (!CertMaker.trustRootCert())
-                    return false;
-            }
-
             return true;
         }
 
         public static bool UninstallCertificate()
         {
-            if (CertMaker.rootCertExists())
-            {
-                if (!CertMaker.removeFiddlerGeneratedCerts(true))
-                    return false;
-            }
-
             return true;
         }
 
         public void Stop()
         {
-            UninstallCertificate();
-
-            FiddlerApplication.Shutdown();
-            System.Threading.Thread.Sleep(750);
+            _proxyServer?.Stop();
 
             OnStopped?.Invoke(this, EventArgs.Empty);
         }
@@ -115,15 +144,17 @@ namespace VodAdsBlocker
         
         protected virtual void Dispose(bool disposing)
         {
-            if (disposed)
+            if (_disposed)
                 return;
 
             if (disposing)
             {
                 Stop();
+
+                _proxyServer?.Dispose();
             }
             
-            disposed = true;
+            _disposed = true;
         }
     }
 }

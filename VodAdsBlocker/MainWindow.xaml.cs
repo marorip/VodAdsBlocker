@@ -3,58 +3,55 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Windows;
 using System.Windows.Forms;
-using Microsoft.Win32;
-using Application = System.Windows.Forms.Application;
+using VodAdsBlocker.Modules;
 
 namespace VodAdsBlocker
 {
     public partial class MainWindow : IDisposable
     {
-        private NotifyIcon trayIcon;
-        private ContextMenu trayMenu;
-        private AdBlocker adBlocker;
-
-        private SettingsWindow settingsWindow;
+        private readonly NotifyIcon _trayIcon;
+        private readonly ContextMenu _trayMenu;
+        private readonly AdBlocker _adBlocker;
 
         public MainWindow()
         {
             InitializeComponent();
 
-            settingsWindow = new SettingsWindow();
+            var settingsWindow = new SettingsWindow();
 
-            adBlocker = new AdBlocker();
-            adBlocker.OnStarted += OnStarted;
-            adBlocker.OnStopped += OnStopped;
+            _adBlocker = new AdBlocker();
+            _adBlocker.OnStarted += OnStarted;
+            _adBlocker.OnStopped += OnStopped;
 
-            trayMenu = new ContextMenu();
-            trayMenu.MenuItems.Add("Włącz blokowanie", (o, args) => adBlocker?.Start());
-            trayMenu.MenuItems.Add("Wyłącz blokowanie", (o, args) => adBlocker?.Stop());
-            trayMenu.MenuItems.Add("Ustawienia", (o, args) => settingsWindow.ShowDialog());
-            trayMenu.MenuItems.Add("-");
-            trayMenu.MenuItems.Add("Zamknij", OnExit);
+            _trayMenu = new ContextMenu();
+            _trayMenu.MenuItems.Add("Włącz blokowanie", (o, args) => _adBlocker?.Start());
+            _trayMenu.MenuItems.Add("Wyłącz blokowanie", (o, args) => _adBlocker?.Stop());
+            _trayMenu.MenuItems.Add("Ustawienia", (o, args) => settingsWindow.ShowDialog());
+            _trayMenu.MenuItems.Add("-");
+            _trayMenu.MenuItems.Add("Zamknij", OnExit);
 
-            trayMenu.MenuItems[1].Visible = false;
+            _trayMenu.MenuItems[1].Visible = false;
 
-            trayIcon = new NotifyIcon();
-            trayIcon.Text = "VOD AdBlocker";
-            trayIcon.Icon = new Icon(Properties.Resources.off, 40, 40);
+            _trayIcon = new NotifyIcon();
+            _trayIcon.Text = "VOD AdBlocker";
+            _trayIcon.Icon = new Icon(Properties.Resources.off, 40, 40);
 
-            trayIcon.ContextMenu = trayMenu;
-            trayIcon.Visible = true;
+            _trayIcon.ContextMenu = _trayMenu;
+            _trayIcon.Visible = true;
         }
 
         private void OnStarted(object sender, EventArgs eventArgs)
         {
-            trayIcon.Icon = new Icon(Properties.Resources.on, 40, 40);
-            trayMenu.MenuItems[0].Visible = false;
-            trayMenu.MenuItems[1].Visible = true;
+            _trayIcon.Icon = new Icon(Properties.Resources.on, 40, 40);
+            _trayMenu.MenuItems[0].Visible = false;
+            _trayMenu.MenuItems[1].Visible = true;
         }
 
         private void OnStopped(object sender, EventArgs eventArgs)
         {
-            trayIcon.Icon = new Icon(Properties.Resources.off, 40, 40);
-            trayMenu.MenuItems[0].Visible = true;
-            trayMenu.MenuItems[1].Visible = false;
+            _trayIcon.Icon = new Icon(Properties.Resources.off, 40, 40);
+            _trayMenu.MenuItems[0].Visible = true;
+            _trayMenu.MenuItems[1].Visible = false;
         }
 
 
@@ -70,8 +67,8 @@ namespace VodAdsBlocker
         {
             base.OnClosing(e);
 
-            adBlocker?.Dispose();
-            trayIcon?.Dispose();
+            _adBlocker?.Dispose();
+            _trayIcon?.Dispose();
         }
 
         private void OnExit(object sender, EventArgs e)
@@ -79,12 +76,7 @@ namespace VodAdsBlocker
             System.Windows.Application.Current.Shutdown();
         }
 
-        private bool disposed;
-
-        ~MainWindow()
-        {
-            Dispose(false);
-        }
+        private bool _disposed;
 
         public void Dispose()
         {
@@ -94,15 +86,15 @@ namespace VodAdsBlocker
 
         public void Dispose(bool disposing)
         {
-            if (!disposed)
+            if (!_disposed)
             {
                 if (disposing)
                 {
-                    adBlocker?.Dispose();
-                    trayIcon?.Dispose();
+                    _adBlocker?.Dispose();
+                    _trayIcon?.Dispose();
                 }
 
-                disposed = true;
+                _disposed = true;
             }
         }
     }

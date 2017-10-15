@@ -1,7 +1,7 @@
 ﻿using System.IO;
 using System.Xml.Serialization;
 
-namespace VodAdsBlocker
+namespace VodAdsBlocker.Modules
 {
     public static class Utils
     {

@@ -5,7 +5,7 @@ using Microsoft.Win32;
 
 namespace VodAdsBlocker
 {
-    public partial class SettingsWindow : Window
+    public partial class SettingsWindow
     {
         public SettingsWindow()
         {
@@ -16,13 +16,13 @@ namespace VodAdsBlocker
 
         protected override void OnClosing(CancelEventArgs e)
         {
-            e.Cancel = true;  // cancels the window close    
-            this.Hide();      // Programmatically hides the window
+            e.Cancel = true;   
+            this.Hide();
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            var desktopWorkingArea = System.Windows.SystemParameters.WorkArea;
+            var desktopWorkingArea = SystemParameters.WorkArea;
             this.Left = desktopWorkingArea.Right - this.Width;
             this.Top = desktopWorkingArea.Bottom - this.Height;
         }

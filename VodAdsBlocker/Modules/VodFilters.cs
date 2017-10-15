@@ -1,12 +1,12 @@
 ﻿using System.Collections.Generic;
 using System.Xml.Serialization;
 
-namespace VodAdsBlocker
+namespace VodAdsBlocker.Modules
 {
     public class VodFilters
     {
         [XmlElement("Filter")]
-        public List<Filter> Filters { get; set; } 
+        public List<Filter> Filters { get; set; }
     }
 
     public class Filter
