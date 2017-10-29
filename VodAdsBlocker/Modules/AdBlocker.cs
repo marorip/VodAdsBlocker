@@ -13,6 +13,8 @@ namespace VodAdsBlocker.Modules
 {
     public class AdBlocker : IDisposable
     {
+        private static readonly log4net.ILog log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+
         private bool _disposed;
         private VodFilters _filters;
 
@@ -23,6 +25,8 @@ namespace VodAdsBlocker.Modules
 
         public AdBlocker()
         {
+            Log("Initialize");
+
             UpdateFilters();
 
             _proxyServer = new ProxyServer
@@ -59,18 +63,24 @@ namespace VodAdsBlocker.Modules
             Filter filter = _filters?.Filters?.FirstOrDefault(x => url.Contains(x.Query));
             if (filter != null)
             {
-                Debug.WriteLine($"Resp: {url}");
+                Log($"Resp: {url}");
                 await arg2.SetResponseBodyString(filter.Response);
             }
 
             if (url.Contains("//s.tvp.pl") && url.Contains(".css"))
             {
-                Debug.WriteLine($"TVP Resp: {url}");
+                Log($"TVP Resp: {url}");
 
                 string response = await arg2.GetResponseBodyAsString();
                 response = response.Replace("#tvpoverlay_abdinfo{", "#tvpoverlay_abdinfo{display:none;");
                 await arg2.SetResponseBodyString(response);
             }
+        }
+
+        private void Log(string message)
+        {
+            log.Debug(message);
+            Debug.WriteLine(message);
         }
 
         //private Task OnRequest(object arg1, SessionEventArgs arg2)
@@ -101,6 +111,8 @@ namespace VodAdsBlocker.Modules
 
         public void Start()
         {
+            Log("Start");
+
             var explicitEndPoint = new ExplicitProxyEndPoint(IPAddress.Any, 8000, true)
             {
                 ExcludedHttpsHostNameRegex = new List<string>
@@ -131,6 +143,8 @@ namespace VodAdsBlocker.Modules
 
         public void Stop()
         {
+            Log("Stop");
+
             _proxyServer?.Stop();
 
             OnStopped?.Invoke(this, EventArgs.Empty);
@@ -149,7 +163,8 @@ namespace VodAdsBlocker.Modules
 
             if (disposing)
             {
-                Stop();
+                if (_proxyServer.ProxyRunning)
+                    Stop();
 
                 _proxyServer?.Dispose();
             }
